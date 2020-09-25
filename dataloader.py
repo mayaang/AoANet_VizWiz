@@ -52,7 +52,7 @@ class HybridLoader:
             f_input = self.feat_file[key]
         else:
             f_input = os.path.join(self.db_path, key + self.ext)
-
+        #print(f_input)
         # load image
         feat = self.loader(f_input)
 
@@ -79,7 +79,9 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
-        
+        # TODO change
+        self.use_ner = True 
+        self.opt.input_ner_dir = 'data/ner/'
         # feature related options
         self.use_fc = getattr(opt, 'use_fc', True)
         self.use_att = getattr(opt, 'use_att', True)
@@ -113,7 +115,8 @@ class DataLoader(data.Dataset):
         self.fc_loader = HybridLoader(self.opt.input_fc_dir, '.npy')
         self.att_loader = HybridLoader(self.opt.input_att_dir, '.npz')
         self.box_loader = HybridLoader(self.opt.input_box_dir, '.npy')
-
+        self.ner_loader = HybridLoader(self.opt.input_ner_dir, '.npy')  
+              
         self.num_images = len(self.info['images']) # self.label_start_ix.shape[0]
         print('read %d image features' %(self.num_images))
 
@@ -171,13 +174,15 @@ class DataLoader(data.Dataset):
         return seq
 
     def get_batch(self, split, batch_size=None):
+
         batch_size = batch_size or self.batch_size
         seq_per_img = self.seq_per_img
 
         fc_batch = [] # np.ndarray((batch_size * seq_per_img, self.opt.fc_feat_size), dtype = 'float32')
         att_batch = [] # np.ndarray((batch_size * seq_per_img, 14, 14, self.opt.att_feat_size), dtype = 'float32')
         label_batch = [] #np.zeros([batch_size * seq_per_img, self.seq_length + 2], dtype = 'int')
-
+        ner_batch = []
+        
         wrapped = False
 
         infos = []
@@ -185,13 +190,14 @@ class DataLoader(data.Dataset):
 
         for i in range(batch_size):
             # fetch image
-            tmp_fc, tmp_att, tmp_seq, \
+            tmp_fc, tmp_att, tmp_ner, tmp_seq, \
                 ix, tmp_wrapped = self._prefetch_process[split].get()
             if tmp_wrapped:
                 wrapped = True
 
             fc_batch.append(tmp_fc)
             att_batch.append(tmp_att)
+            ner_batch.append(tmp_ner)
             
             tmp_label = np.zeros([seq_per_img, self.seq_length + 2], dtype = 'int')
             if hasattr(self, 'h5_label_file'):
@@ -214,10 +220,12 @@ class DataLoader(data.Dataset):
         # #sort by att_feat length
         # fc_batch, att_batch, label_batch, gts, infos = \
         #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
-        fc_batch, att_batch, label_batch, gts, infos = \
-            zip(*sorted(zip(fc_batch, att_batch, label_batch, gts, infos), key=lambda x: 0, reverse=True))
+        fc_batch, att_batch, ner_batch, label_batch, gts, infos = \
+            zip(*sorted(zip(fc_batch, att_batch, ner_batch, label_batch, gts, infos), key=lambda x: 0, reverse=True))
         data = {}
+        # TODO here is the batch
         data['fc_feats'] = np.stack(sum([[_]*seq_per_img for _ in fc_batch], []))
+        data['ner_feats'] = np.stack(sum([[_]*seq_per_img for _ in ner_batch], []))
         # merge att_feats
         max_att_len = max([_.shape[0] for _ in att_batch])
         data['att_feats'] = np.zeros([len(att_batch)*seq_per_img, max_att_len, att_batch[0].shape[1]], dtype = 'float32')
@@ -273,15 +281,23 @@ class DataLoader(data.Dataset):
         else:
             att_feat = np.zeros((1,1,1), dtype='float32')
         if self.use_fc:
+            #print("here")
             fc_feat = self.fc_loader.get(str(self.info['images'][ix]['id']))
         else:
             fc_feat = np.zeros((1), dtype='float32')
+        if self.use_ner:
+            #print("here")
+            ner_feat = self.ner_loader.get(str(self.info['images'][ix]['id']))
+        else:
+            ner_feat = np.zeros((1), dtype='float32')
+            
         if hasattr(self, 'h5_label_file'):
             seq = self.get_captions(ix, self.seq_per_img)
         else:
             seq = None
+        
         return (fc_feat,
-                att_feat, seq,
+                att_feat, ner_feat, seq,
                 ix)
 
     def __len__(self):
@@ -356,4 +372,4 @@ class BlobFetcher():
 
         assert tmp[-1] == ix, "ix not equal"
 
-        return tmp + [wrapped]
+        return tmp + ([wrapped],)
