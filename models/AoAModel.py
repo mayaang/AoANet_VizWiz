@@ -127,6 +127,7 @@ class AoA_Refiner_Core(nn.Module):
 class AoA_Decoder_Core(nn.Module):
     def __init__(self, opt):
         super(AoA_Decoder_Core, self).__init__()
+
         self.drop_prob_lm = opt.drop_prob_lm
         self.d_model = opt.rnn_size
         self.use_multi_head = opt.use_multi_head
@@ -136,10 +137,17 @@ class AoA_Decoder_Core(nn.Module):
         self.decoder_type = getattr(opt, 'decoder_type', 'AoA')
         self.att_lstm = nn.LSTMCell(opt.input_encoding_size + opt.rnn_size, opt.rnn_size) # we, fc, h^2_t-1
         self.out_drop = nn.Dropout(self.drop_prob_lm)
-
+        self.use_ner = True
+        self.ner_size = 1024
+        
         if self.decoder_type == 'AoA':
             # AoA layer
-            self.att2ctx = nn.Sequential(nn.Linear(self.d_model * opt.multi_head_scale + opt.rnn_size, 2 * opt.rnn_size), nn.GLU())
+            # TODO here will go the shape extension
+            #import pdb; pdb.set_trace()
+            if self.use_ner:
+                self.att2ctx = nn.Sequential(nn.Linear(self.d_model * opt.multi_head_scale + opt.rnn_size + self.ner_size, 2 * opt.rnn_size), nn.GLU())
+            else:
+                self.att2ctx = nn.Sequential(nn.Linear(self.d_model * opt.multi_head_scale + opt.rnn_size, 2 * opt.rnn_size), nn.GLU())
         elif self.decoder_type == 'LSTM':
             # LSTM layer
             self.att2ctx = nn.LSTMCell(self.d_model * opt.multi_head_scale + opt.rnn_size, opt.rnn_size)
@@ -153,22 +161,33 @@ class AoA_Decoder_Core(nn.Module):
             self.attention = MultiHeadedDotAttention(opt.num_heads, opt.rnn_size, project_k_v=0, scale=opt.multi_head_scale, use_output_layer=0, do_aoa=0, norm_q=1)
         else:            
             self.attention = Attention(opt)
+        if self.use_ner:
+            self.ner_layer = nn.Sequential(nn.Linear(300, 512),
+                                 nn.ReLU(),
+                                 nn.Dropout(0.2),
+                                 nn.Linear(512, 1024))
 
         if self.use_ctx_drop:
             self.ctx_drop = nn.Dropout(self.drop_prob_lm)        
         else:
             self.ctx_drop = lambda x :x
 
-    def forward(self, xt, mean_feats, att_feats, p_att_feats, state, att_masks=None):
+    def forward(self, xt, mean_feats, att_feats, p_att_feats, state, att_masks=None, ner = None):
         # state[0][1] is the context vector at the last step
+        #import pdb; pdb.set_trace()
         h_att, c_att = self.att_lstm(torch.cat([xt, mean_feats + self.ctx_drop(state[0][1])], 1), (state[0][0], state[1][0]))
-
+        
         if self.use_multi_head == 2:
             att = self.attention(h_att, p_att_feats.narrow(2, 0, self.multi_head_scale * self.d_model), p_att_feats.narrow(2, self.multi_head_scale * self.d_model, self.multi_head_scale * self.d_model), att_masks)
         else:
             att = self.attention(h_att, att_feats, p_att_feats, att_masks)
-
-        ctx_input = torch.cat([att, h_att], 1)
+            
+        if self.use_ner:
+            ner = self.ner_layer(ner)
+            ctx_input = torch.cat([att, h_att, ner], 1)
+        else:
+        #import pdb; pdb.set_trace()
+            ctx_input = torch.cat([att, h_att], 1)
         if self.decoder_type == 'LSTM':
             output, c_logic = self.att2ctx(ctx_input, (state[0][1], state[1][1]))
             state = (torch.stack((h_att, output)), torch.stack((c_att, c_logic)))

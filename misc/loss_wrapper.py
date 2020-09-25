@@ -14,10 +14,11 @@ class LossWrapper(torch.nn.Module):
         self.rl_crit = utils.RewardCriterion()
 
     def forward(self, fc_feats, att_feats, labels, masks, att_masks, gts, gt_indices,
-                sc_flag):
+                sc_flag, ner = None):
         out = {}
+        #import pdb; pdb.set_trace()
         if not sc_flag:
-            loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks, ner), labels[:,1:], masks[:,1:])
         else:
             self.model.eval()
             with torch.no_grad():

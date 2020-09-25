@@ -116,7 +116,7 @@ class AttModel(CaptionModel):
 
         return fc_feats, att_feats, p_att_feats, att_masks
 
-    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
+    def _forward(self, fc_feats, att_feats, seq, att_masks=None, ner = None):
         batch_size = fc_feats.size(0)
         state = self.init_hidden(batch_size)
 
@@ -146,16 +146,16 @@ class AttModel(CaptionModel):
             if i >= 1 and seq[:, i].sum() == 0:
                 break
 
-            output, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
+            output, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state, ner)
             outputs[:, i] = output
 
         return outputs
 
-    def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state):
+    def get_logprobs_state(self, it, fc_feats, att_feats, p_att_feats, att_masks, state, ner = None):
         # 'it' contains a word index
         xt = self.embed(it)
 
-        output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
+        output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks, ner)
         logprobs = F.log_softmax(self.logit(output), dim=1)
 
         return logprobs, state
