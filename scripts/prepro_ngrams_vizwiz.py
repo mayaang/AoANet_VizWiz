@@ -1,3 +1,5 @@
+
+
 """
 Preprocess a raw json dataset into hdf5/json files for use in data_loader.lua
 
@@ -129,7 +131,7 @@ def build_dict(wtoi, params):
   for dataset in params['split']:
     annFile='%s/%s.json' % (VizWiz_ANN_PATH, dataset)
     coco = COCO(annFile)
-    for image_id,anns in coco.imgToAnns.iteritems():
+    for image_id,anns in coco.imgToAnns.items():
       if image_id in corrupt_list:
         continue
       ref_words = []
