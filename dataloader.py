@@ -372,4 +372,4 @@ class BlobFetcher():
 
         assert tmp[-1] == ix, "ix not equal"
 
-        return tmp + ([wrapped],)
+        return tmp + [wrapped]
