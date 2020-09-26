@@ -1,3 +1,4 @@
+
 """
 Preprocess a raw json dataset into hdf5/json files for use in data_loader.lua
 
@@ -84,7 +85,7 @@ def build_vocab(params, data_split, base_vocab=None):
     annFile='%s/%s.json' % (VizWiz_ANN_PATH, dataset)
     coco = COCO(annFile)
     # Count word frequencies
-    for image_id,anns in coco.imgToAnns.iteritems():
+    for image_id,anns in coco.imgToAnns.items():
       if image_id in corrupt_list:
         continue
       for ann in anns:
@@ -114,7 +115,7 @@ def build_vocab(params, data_split, base_vocab=None):
     annFile='%s/%s.json' % (VizWiz_ANN_PATH, dataset)
     coco = COCO(annFile)
     # Count word frequencies
-    for image_id,anns in coco.imgToAnns.iteritems():
+    for image_id,anns in coco.imgToAnns.items():
       if image_id in corrupt_list:
         continue
       for ann in anns:
@@ -162,7 +163,7 @@ def encode_captions(params, data_split, wtoi):
   for dataset in data_split:
     annFile='%s/%s.json' % (VizWiz_ANN_PATH, dataset)
     coco = COCO(annFile)
-    for image_id,anns in coco.imgToAnns.iteritems():
+    for image_id,anns in coco.imgToAnns.items():
       if image_id in corrupt_list:
         continue
       img_count += 1
@@ -182,7 +183,7 @@ def encode_captions(params, data_split, wtoi):
   for dataset in data_split:
     annFile='%s/%s.json' % (VizWiz_ANN_PATH, dataset)
     coco = COCO(annFile)
-    for image_id,anns in coco.imgToAnns.iteritems():
+    for image_id,anns in coco.imgToAnns.items():
       if image_id in corrupt_list:
         continue
       image_info = coco.imgs[image_id]
