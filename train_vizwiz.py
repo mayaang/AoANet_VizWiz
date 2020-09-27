@@ -34,6 +34,8 @@ def add_summary_value(writer, key, value, iteration):
 
 def train(opt):
     # Deal with feature things before anything
+    #opt.start_from = None
+    #opt.batch_size = 2
     opt.use_fc, opt.use_att = utils.if_use_feat(opt.caption_model)
     if opt.use_box: opt.att_feat_size = opt.att_feat_size + 5
 
@@ -48,6 +50,7 @@ def train(opt):
     infos = {}
     histories = {}
     if opt.start_from is not None:
+     #   import pdb; pdb.set_trace()
         # open old infos and check if models are compatible
         with open(os.path.join(opt.start_from, 'infos_'+opt.id+'.pkl'), 'rb') as f:
             infos = utils.pickle_load(f)
@@ -81,6 +84,7 @@ def train(opt):
         best_val_score = infos.get('best_val_score', None)
 
     opt.vocab = loader.get_vocab()
+
     model = models.setup(opt).cuda()
     del opt.vocab
     dp_model = torch.nn.DataParallel(model)
@@ -164,9 +168,10 @@ def train(opt):
             start = time.time()
             tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks'], data['ner_feats']]
             tmp = [_ if _ is None else _.cuda() for _ in tmp]
+
             fc_feats, att_feats, labels, masks, att_masks, classified_ner = tmp
 
-            model_out = dp_lw_model(fc_feats, att_feats, labels, masks, att_masks, data['gts'], torch.arange(0, len(data['gts'])), sc_flag, ner=classified_ner)
+            model_out = dp_lw_model(fc_feats, att_feats, labels, masks, att_masks, classified_ner, data['gts'], torch.arange(0, len(data['gts'])), sc_flag)
 
             loss = model_out['loss'].mean()
             loss_sp = loss / acc_steps

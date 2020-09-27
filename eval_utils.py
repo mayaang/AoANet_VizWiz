@@ -119,8 +119,9 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         tmp = [_.cuda() if _ is not None else _ for _ in tmp]
         fc_feats, att_feats, classified_ner, att_masks = tmp
         # forward the model to also get generated samples for each image
+        #import pdb; pdb.set_trace()
         with torch.no_grad():
-            seq = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample', ner = classified_ner)[0].data
+            seq = model(fc_feats, att_feats, att_masks, ner = classified_ner, opt=eval_kwargs, mode='sample')[0].data
         
         # Print beam search
         if beam_size > 1 and verbose_beam:

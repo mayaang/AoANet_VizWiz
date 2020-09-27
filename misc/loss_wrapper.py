@@ -13,18 +13,20 @@ class LossWrapper(torch.nn.Module):
             self.crit = utils.LanguageModelCriterion()
         self.rl_crit = utils.RewardCriterion()
 
-    def forward(self, fc_feats, att_feats, labels, masks, att_masks, gts, gt_indices,
-                sc_flag, ner = None):
+    def forward(self, fc_feats, att_feats, labels, masks, att_masks, ner, gts, gt_indices,
+                sc_flag):
         out = {}
+
         #import pdb; pdb.set_trace()
         if not sc_flag:
             loss = self.crit(self.model(fc_feats, att_feats, labels, att_masks, ner), labels[:,1:], masks[:,1:])
         else:
+            
             self.model.eval()
             with torch.no_grad():
-                greedy_res, _ = self.model(fc_feats, att_feats, att_masks, mode='sample')
+                greedy_res, _ = self.model(fc_feats, att_feats, att_masks, ner, mode='sample')
             self.model.train()
-            gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks, opt={'sample_method':'sample'}, mode='sample')
+            gen_result, sample_logprobs = self.model(fc_feats, att_feats, att_masks, ner, opt={'sample_method':'sample'}, mode='sample')
             gts = [gts[_] for _ in gt_indices.tolist()]
             reward = get_self_critical_reward(greedy_res, gts, gen_result, self.opt)
             reward = torch.from_numpy(reward).float().to(gen_result.device)
