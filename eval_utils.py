@@ -106,7 +106,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             fc_feats, att_feats, labels, masks, att_masks, classified_ner = tmp
 
             with torch.no_grad():
-                loss = crit(model(fc_feats, att_feats, labels, att_masks, classiffied_ner), labels[:,1:], masks[:,1:]).item()
+                loss = crit(model(fc_feats, att_feats, labels, att_masks, classified_ner), labels[:,1:], masks[:,1:]).item()
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
